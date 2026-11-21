@@ -1,0 +1,1586 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>喵喵的乳糖不耐大挑戰 - 花間公會團欺特輯</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Noto Sans TC', sans-serif;
+      background-color: #7dd3fc;
+    }
+
+    #game-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: manipulation;
+    }
+
+    .cute-panel {
+      background: linear-gradient(155deg, rgba(255, 255, 255, 0.96), rgba(254, 249, 252, 0.94));
+      backdrop-filter: blur(12px);
+      border: 3px solid #ffffff;
+      box-shadow: 0 18px 42px rgba(15, 23, 42, 0.22), inset 0 0 0 2px rgba(251, 191, 36, 0.35);
+    }
+
+    /* 狂飲牛奶大按鈕 */
+    .drink-btn {
+      cursor: pointer;
+      transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.12s ease;
+      box-shadow: 0 8px 0 #0284c7, 0 14px 24px rgba(2, 132, 199, 0.35);
+    }
+    .drink-btn:active, .drink-btn.is-drinking {
+      transform: translateY(6px) scale(0.97);
+      box-shadow: 0 2px 0 #0284c7, 0 6px 12px rgba(2, 132, 199, 0.3);
+      filter: brightness(1.05);
+    }
+
+    .btn-primary {
+      cursor: pointer;
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+      box-shadow: 0 5px 0 #b45309, 0 10px 20px rgba(245, 158, 11, 0.35);
+    }
+    .btn-primary:active {
+      transform: translateY(4px);
+      box-shadow: 0 1px 0 #b45309;
+    }
+
+    @keyframes pulseDanger {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.04); }
+    }
+    .danger-pulse {
+      animation: pulseDanger 0.35s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="relative w-full h-full overflow-hidden">
+
+  <!-- 全螢幕遊戲畫布 -->
+  <canvas id="game-canvas"></canvas>
+
+  <!-- 頂部 HUD 狀態列 -->
+  <header class="fixed top-0 inset-x-0 z-20 pointer-events-none p-2.5 sm:p-4 flex flex-col items-center gap-2">
+    <div class="w-full max-w-xl flex items-center justify-between gap-2">
+      <!-- 公會與角色標籤 -->
+      <div class="flex items-center gap-1.5 bg-slate-900/85 backdrop-blur-md text-white px-3 py-1.5 rounded-2xl border border-amber-300/40 shadow-md">
+        <span class="text-sm sm:text-base">🍌</span>
+        <span class="text-xs sm:text-sm font-black text-amber-300">花間團欺・喵喵</span>
+        <span class="hidden sm:inline text-xs text-pink-200 font-bold">| 界域沙包</span>
+      </div>
+
+      <!-- 右側最高紀錄與音效開關 -->
+      <div class="flex items-center gap-2 pointer-events-auto">
+        <div class="bg-white/95 backdrop-blur-md px-3 py-1 rounded-2xl border border-white shadow text-right">
+          <div class="text-[10px] font-bold text-slate-500">最高飲奶紀錄</div>
+          <div id="hud-best" class="text-xs sm:text-sm font-black text-sky-600">0 ml</div>
+        </div>
+        <button id="sound-btn" type="button" aria-label="切換音效" class="cursor-pointer bg-white/95 hover:bg-white active:scale-95 transition w-10 h-10 rounded-2xl shadow border border-slate-100 flex items-center justify-center text-lg">
+          🔊
+        </button>
+      </div>
+    </div>
+
+    <!-- 核心數據儀表板：飲奶量 / 倒數計時 / 腹鳴壓力計 -->
+    <div class="w-full max-w-xl bg-white/95 backdrop-blur-md p-2.5 sm:p-3 rounded-3xl shadow-lg border-2 border-white flex flex-col gap-2">
+      <div class="grid grid-cols-3 gap-2 text-center">
+        <!-- 飲奶總量 -->
+        <div class="bg-sky-50 rounded-2xl py-1 px-2 border border-sky-200">
+          <div class="text-[11px] font-bold text-sky-700">🥛 累計飲奶量</div>
+          <div id="hud-score" class="text-lg sm:text-2xl font-black text-sky-900">0 <span class="text-xs font-bold">ml</span></div>
+        </div>
+
+        <!-- 剩餘時間 -->
+        <div id="hud-time-box" class="bg-amber-50 rounded-2xl py-1 px-2 border border-amber-200 transition-colors">
+          <div class="text-[11px] font-bold text-amber-700">⏱️ 挑戰倒數</div>
+          <div id="hud-time" class="text-lg sm:text-2xl font-black text-amber-900">45.0s</div>
+        </div>
+
+        <!-- 跑廁所次數 / 極限忍耐 -->
+        <div class="bg-pink-50 rounded-2xl py-1 px-2 border border-pink-200">
+          <div class="text-[11px] font-bold text-pink-700">🚽 衝廁 / 忍耐</div>
+          <div class="text-base sm:text-xl font-black text-pink-900">
+            <span id="hud-wc">0</span>次 / <span id="hud-clutch" class="text-emerald-600">0</span>次
+          </div>
+        </div>
+      </div>
+
+      <!-- 腹鳴壓力計進度條 (0% ~ 100%) -->
+      <div id="rumble-container" class="flex flex-col gap-1 px-1">
+        <div class="flex items-center justify-between text-xs font-black">
+          <span id="rumble-status-text" class="text-slate-700 flex items-center gap-1">
+            <span>🐱 腸胃平穩中</span>
+          </span>
+          <div class="flex items-center gap-2">
+            <span id="iron-stomach-badge" class="hidden bg-gradient-to-r from-amber-400 to-pink-500 text-white text-[11px] px-2 py-0.5 rounded-full shadow-sm">
+              💊 鐵胃無敵 2x！
+            </span>
+            <span id="rumble-percent" class="text-sky-700">0%</span>
+          </div>
+        </div>
+
+        <div class="relative w-full h-4 sm:h-5 bg-slate-200 rounded-full overflow-hidden border border-slate-300 shadow-inner">
+          <!-- 85% ~ 100% 極限忍耐紅區標記線 -->
+          <div class="absolute top-0 bottom-0 right-0 w-[15%] bg-rose-500/20 border-l-2 border-dashed border-rose-500 z-10 pointer-events-none" title="極限紅區 85%~99%"></div>
+          <!-- 動態進度條 -->
+          <div id="rumble-bar" class="h-full bg-gradient-to-r from-sky-400 via-amber-400 to-rose-500 transition-all duration-75 rounded-full" style="width: 0%"></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 底部狂飲互動大按鈕區 -->
+  <div id="bottom-controls" class="fixed bottom-4 sm:bottom-6 inset-x-0 z-30 hidden flex-col items-center px-4 pointer-events-none">
+    <!-- 動態狀態提示氣泡 -->
+    <div id="action-hint" class="mb-2 bg-slate-900/75 backdrop-blur-sm text-white text-xs sm:text-sm font-bold px-4 py-1 rounded-full border border-white/20 shadow">
+      按住狂飲鮮奶！衝進 <span class="text-rose-300 font-black">85%紅區</span> 再放開可觸發極限忍耐獎勵！
+    </div>
+
+    <button id="drink-btn" type="button" class="drink-btn pointer-events-auto w-full max-w-xs sm:max-w-sm py-3.5 sm:py-4 px-6 rounded-3xl bg-gradient-to-b from-sky-300 via-sky-500 to-blue-600 border-4 border-white text-white flex items-center justify-center gap-3">
+      <span class="text-3xl sm:text-4xl drop-shadow pointer-events-none">🥛</span>
+      <div class="text-left pointer-events-none">
+        <div id="drink-btn-title" class="text-lg sm:text-xl font-black tracking-wide leading-tight">按住狂飲鮮奶</div>
+        <div class="text-[11px] sm:text-xs font-bold text-sky-100">放開喘口氣消化（也可按住空白鍵）</div>
+      </div>
+    </button>
+  </div>
+
+  <!-- 開始畫面懸浮卡片 (z-40) -->
+  <div id="start-screen" class="fixed inset-0 z-40 flex items-center justify-center p-4 bg-slate-900/35 backdrop-blur-[3px]">
+    <div class="cute-panel rounded-3xl max-w-md w-full p-5 sm:p-6 text-center relative overflow-hidden">
+      <div class="absolute top-0 inset-x-0 h-2.5 bg-gradient-to-r from-sky-400 via-amber-400 to-pink-400"></div>
+
+      <div class="inline-flex items-center gap-1.5 bg-amber-100 text-amber-800 border border-amber-300 text-xs font-black px-3 py-1 rounded-full mb-2">
+        <span>🍌</span>
+        <span>花間公會・界域沙包團欺特輯</span>
+      </div>
+
+      <h1 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mb-1">
+        喵喵的乳糖不耐大挑戰
+      </h1>
+      <p class="text-xs sm:text-sm text-slate-600 font-medium mb-4">
+        喵喵明明有乳糖不耐症，卻忍不住想把整箱鮮奶喝光光！快幫她控制飲奶節奏吧！
+      </p>
+
+      <!-- 趣味玩法圖解 -->
+      <div class="bg-white/90 rounded-2xl p-3.5 border border-sky-100 text-left space-y-2 mb-4 text-xs sm:text-sm">
+        <div class="flex items-start gap-2.5">
+          <span class="text-lg shrink-0">🥛</span>
+          <span class="text-slate-700"><b>按住狂飲 / 放開消化：</b>按住按鈕（或空白鍵）狂喝鮮奶賺取 <b>ml 積分</b>，但腹鳴壓力會快速上升！</span>
+        </div>
+        <div class="flex items-start gap-2.5">
+          <span class="text-lg shrink-0">🔥</span>
+          <span class="text-slate-700"><b>極限忍耐獎勵：</b>在 <b class="text-rose-600">85%～99% 紅區</b>及時煞車並冷卻回 50% 以下，額外獲得 <b class="text-emerald-600">+300 ml</b>！</span>
+        </div>
+        <div class="flex items-start gap-2.5">
+          <span class="text-lg shrink-0">🚀</span>
+          <span class="text-slate-700"><b>100% 火箭衝廁：</b>壓力爆表會化身「噗噗蒸氣火箭」衝向 WC 廁所（扣 5 秒時間），清空腸胃後回來繼續喝！</span>
+        </div>
+        <div class="flex items-start gap-2.5">
+          <span class="text-lg shrink-0">💊</span>
+          <span class="text-slate-700"><b>點擊空中道具：</b>點擊飄過的 <b>乳糖酶藥丸</b> 或 <b>花間花茶</b> 舒緩腸胃；小心別點到 <b>濃醇起司</b>！</span>
+        </div>
+      </div>
+
+      <button id="start-btn" type="button" class="btn-primary w-full bg-gradient-to-r from-amber-400 via-orange-400 to-pink-500 text-slate-950 font-black text-lg sm:text-xl py-3.5 rounded-2xl flex items-center justify-center gap-2">
+        <span>🥛</span>
+        <span>開始餵喵喵喝牛奶！</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 遊戲結束結算彈窗 (z-50) -->
+  <div id="gameover-screen" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/65 backdrop-blur-sm">
+    <div class="cute-panel rounded-3xl max-w-md w-full p-6 text-center relative overflow-hidden">
+      <div class="absolute top-0 inset-x-0 h-3 bg-gradient-to-r from-sky-400 via-pink-400 to-amber-400"></div>
+
+      <div class="inline-block bg-slate-800 text-amber-300 text-xs font-black px-3 py-1 rounded-full mb-2">
+        🌸 花間公會・團欺飲奶結算戰報
+      </div>
+
+      <h2 id="res-rank-title" class="text-2xl sm:text-3xl font-black text-slate-900 mb-1">
+        花間乳糖不耐勇者
+      </h2>
+      <p id="res-rank-desc" class="text-xs sm:text-sm text-slate-600 font-medium mb-4">
+        喵喵抱著肚子和大咸魚，心滿意足地打了一個奶嗝！
+      </p>
+
+      <!-- 戰績數據格 -->
+      <div class="grid grid-cols-3 gap-2 bg-white p-3 rounded-2xl border border-slate-200 mb-4">
+        <div class="bg-sky-50 p-2 rounded-xl border border-sky-100">
+          <div class="text-[11px] font-bold text-sky-700">總飲奶量</div>
+          <div id="res-score" class="text-lg sm:text-xl font-black text-sky-600">0 ml</div>
+        </div>
+        <div class="bg-rose-50 p-2 rounded-xl border border-rose-100">
+          <div class="text-[11px] font-bold text-rose-700">火箭衝廁</div>
+          <div id="res-wc" class="text-lg sm:text-xl font-black text-rose-600">0 次</div>
+        </div>
+        <div class="bg-emerald-50 p-2 rounded-xl border border-emerald-100">
+          <div class="text-[11px] font-bold text-emerald-700">極限忍耐</div>
+          <div id="res-clutch" class="text-lg sm:text-xl font-black text-emerald-600">0 次</div>
+        </div>
+      </div>
+
+      <div id="copy-toast" class="hidden mb-3 bg-emerald-500 text-white text-xs sm:text-sm font-black py-2 px-3 rounded-xl shadow">
+        ✅ 戰績已複製！快貼到花間公會群組笑一下喵喵吧！
+      </div>
+
+      <div class="flex flex-col sm:flex-row gap-2.5">
+        <button id="share-btn" type="button" class="cursor-pointer flex-1 bg-slate-800 hover:bg-slate-700 active:scale-95 transition text-white font-black text-sm sm:text-base py-3 px-4 rounded-2xl shadow flex items-center justify-center gap-1.5">
+          <span>📋</span>
+          <span>複製戰績分享給公會</span>
+        </button>
+
+        <button id="restart-btn" type="button" class="btn-primary flex-1 bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-black text-sm sm:text-base py-3 px-4 rounded-2xl flex items-center justify-center gap-1.5">
+          <span>🔄</span>
+          <span>再喝一輪</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * ============================================================================
+     * 1. Web Audio API 可愛搞笑合成音效引擎 (無外部音檔依賴)
+     * ============================================================================
+     */
+    class MilkSoundFX {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+        this.gulpTimer = 0;
+      }
+
+      init() {
+        try {
+          if (!this.ctx) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) this.ctx = new AudioCtx();
+          }
+          if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume();
+          }
+        } catch (e) {}
+      }
+
+      // 喝牛奶「咕嘟！」水泡音 (音調隨腹鳴壓力升高變緊繃)
+      playGulp(rumbleRatio = 0) {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        const baseFreq = 260 + rumbleRatio * 240;
+        osc.frequency.setValueAtTime(baseFreq, now);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.65, now + 0.085);
+
+        gain.gain.setValueAtTime(0.14, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.095);
+      }
+
+      // 吃下乳糖酶藥丸或花間花茶的閃亮治癒音效
+      playHeal() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const notes = [587.33, 783.99, 1046.50, 1318.51];
+        notes.forEach((freq, idx) => {
+          const now = this.ctx.currentTime + idx * 0.05;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now);
+          gain.gain.setValueAtTime(0.16, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.23);
+        });
+      }
+
+      // 踩到起司陷阱的滑稽低音
+      playCheeseTrap() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(220, now);
+        osc.frequency.linearRampToValueAtTime(110, now + 0.24);
+
+        gain.gain.setValueAtTime(0.16, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.26);
+      }
+
+      // 極限忍耐成功獎勵音效
+      playClutch() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const notes = [523.25, 659.25, 783.99, 1046.50];
+        notes.forEach((f, i) => {
+          const now = this.ctx.currentTime + i * 0.06;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(f, now);
+          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.26);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.27);
+        });
+      }
+
+      // 100% 腹鳴爆表：卡通火箭「咻——噗！」一飛沖天音效
+      playRocketWC() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const now = this.ctx.currentTime;
+        // 滑稽低音噗聲
+        const osc1 = this.ctx.createOscillator();
+        const gain1 = this.ctx.createGain();
+        osc1.type = 'triangle';
+        osc1.frequency.setValueAtTime(190, now);
+        osc1.frequency.exponentialRampToValueAtTime(75, now + 0.16);
+        gain1.gain.setValueAtTime(0.28, now);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.17);
+        osc1.connect(gain1);
+        gain1.connect(this.ctx.destination);
+        osc1.start(now);
+        osc1.stop(now + 0.18);
+
+        // 火箭升空口哨音
+        const osc2 = this.ctx.createOscillator();
+        const gain2 = this.ctx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(340, now + 0.08);
+        osc2.frequency.exponentialRampToValueAtTime(1480, now + 0.55);
+        gain2.gain.setValueAtTime(0.2, now + 0.08);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.56);
+        osc2.connect(gain2);
+        gain2.connect(this.ctx.destination);
+        osc2.start(now + 0.08);
+        osc2.stop(now + 0.57);
+      }
+    }
+
+    const sfx = new MilkSoundFX();
+
+    /**
+     * ============================================================================
+     * 2. 遊戲核心狀態與參數設定
+     * ============================================================================
+     */
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+    const BEST_KEY = 'miaomiao_milk_best_ml_v1';
+
+    const state = {
+      mode: 'START', // 'START' | 'PLAYING' | 'GAMEOVER'
+      width: window.innerWidth,
+      height: window.innerHeight,
+      dpr: 1,
+
+      score: 0, // 飲奶量 (ml)
+      bestScore: parseInt(localStorage.getItem(BEST_KEY) || '0', 10),
+      timeLeft: 45.0,
+      rumble: 0, // 腹鳴壓力值 0 ~ 100
+      isDrinking: false,
+      activeKeys: new Set(),
+
+      // 極限忍耐追蹤
+      reachedDangerZone: false,
+      clutchCount: 0,
+      wcDashCount: 0,
+
+      // 特殊狀態計時器
+      ironStomachTimer: 0, // 乳糖酶藥丸無敵狀態
+      rocketAnimTimer: 0,  // 火箭衝向廁所動畫 (1.5秒)
+      rocketStartY: 0,
+      gulpSoundTimer: 0,
+      elapsed: 0,
+
+      // 飄浮道具 (乳糖酶藥丸、花間花茶、濃醇起司陷阱)
+      items: [],
+      itemSpawnTimer: 1.8,
+
+      // 視覺粒子與飄字
+      particles: [],
+      steamPuffs: [],
+      floatingTexts: [],
+      clouds: [],
+
+      shakeTimer: 0,
+      shakeIntensity: 0
+    };
+
+    // DOM 元素綁定
+    const hudBest = document.getElementById('hud-best');
+    const hudScore = document.getElementById('hud-score');
+    const hudTime = document.getElementById('hud-time');
+    const hudTimeBox = document.getElementById('hud-time-box');
+    const hudWc = document.getElementById('hud-wc');
+    const hudClutch = document.getElementById('hud-clutch');
+    const rumbleStatusText = document.getElementById('rumble-status-text');
+    const rumblePercent = document.getElementById('rumble-percent');
+    const rumbleBar = document.getElementById('rumble-bar');
+    const rumbleContainer = document.getElementById('rumble-container');
+    const ironBadge = document.getElementById('iron-stomach-badge');
+
+    const bottomControls = document.getElementById('bottom-controls');
+    const drinkBtn = document.getElementById('drink-btn');
+    const drinkBtnTitle = document.getElementById('drink-btn-title');
+    const actionHint = document.getElementById('action-hint');
+    const soundBtn = document.getElementById('sound-btn');
+
+    const startScreen = document.getElementById('start-screen');
+    const startBtn = document.getElementById('start-btn');
+    const gameoverScreen = document.getElementById('gameover-screen');
+    const restartBtn = document.getElementById('restart-btn');
+    const shareBtn = document.getElementById('share-btn');
+    const copyToast = document.getElementById('copy-toast');
+
+    hudBest.textContent = `${state.bestScore} ml`;
+
+    function resizeCanvas() {
+      state.dpr = Math.min(window.devicePixelRatio || 1, 2);
+      state.width = window.innerWidth;
+      state.height = window.innerHeight;
+      canvas.width = state.width * state.dpr;
+      canvas.height = state.height * state.dpr;
+      ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+    }
+
+    function initClouds() {
+      state.clouds = [];
+      for (let i = 0; i < 5; i++) {
+        state.clouds.push({
+          x: Math.random() * state.width,
+          y: 65 + Math.random() * (state.height * 0.28),
+          scale: 0.7 + Math.random() * 0.65,
+          speed: 14 + Math.random() * 18
+        });
+      }
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+
+    /**
+     * ============================================================================
+     * 3. 互動控制：按住喝奶、放開消化、點擊空中救援道具
+     * ============================================================================
+     */
+    function setDrinkingState(drinking) {
+      if (state.mode !== 'PLAYING' || state.rocketAnimTimer > 0) {
+        state.isDrinking = false;
+        drinkBtn.classList.remove('is-drinking');
+        return;
+      }
+      state.isDrinking = drinking;
+      if (drinking) {
+        drinkBtn.classList.add('is-drinking');
+        drinkBtnTitle.textContent = '咕嘟咕嘟狂飲中...！';
+      } else {
+        drinkBtn.classList.remove('is-drinking');
+        drinkBtnTitle.textContent = '按住狂飲鮮奶';
+      }
+    }
+
+    // 狂飲大按鈕觸控與滑鼠事件
+    drinkBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      sfx.init();
+      setDrinkingState(true);
+    });
+
+    window.addEventListener('pointerup', () => {
+      setDrinkingState(false);
+    });
+
+    window.addEventListener('pointercancel', () => {
+      setDrinkingState(false);
+    });
+
+    // 鍵盤空白鍵 / 下方向鍵按住喝奶
+    window.addEventListener('keydown', (e) => {
+      if (state.mode !== 'PLAYING') return;
+      if (e.code === 'Space' || e.code === 'ArrowDown') {
+        e.preventDefault();
+        state.activeKeys.add(e.code);
+        setDrinkingState(true);
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'Space' || e.code === 'ArrowDown') {
+        state.activeKeys.delete(e.code);
+        if (state.activeKeys.size === 0) {
+          setDrinkingState(false);
+        }
+      }
+    });
+
+    // 點擊畫布上的空中道具 (乳糖酶藥丸、花間花茶、起司陷阱)
+    canvas.addEventListener('pointerdown', (e) => {
+      if (state.mode !== 'PLAYING') return;
+      const rect = canvas.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+
+      for (let i = state.items.length - 1; i >= 0; i--) {
+        const item = state.items[i];
+        const dist = Math.hypot(clickX - item.x, clickY - item.y);
+        if (dist <= item.radius + 22) {
+          e.preventDefault();
+          e.stopPropagation();
+          activateItem(item);
+          state.items.splice(i, 1);
+          return;
+        }
+      }
+    });
+
+    soundBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.enabled = !sfx.enabled;
+      soundBtn.textContent = sfx.enabled ? '🔊' : '🔇';
+    });
+
+    /**
+     * ============================================================================
+     * 4. 道具效果、極限忍耐與 100% 火箭衝廁搞笑演出
+     * ============================================================================
+     */
+    function spawnItem() {
+      const marginX = Math.max(70, state.width * 0.16);
+      const x = marginX + Math.random() * (state.width - marginX * 2);
+      const y = state.height * (0.28 + Math.random() * 0.34);
+
+      const roll = Math.random();
+      let type = 'pill'; // 乳糖酶小藥丸
+      if (roll < 0.45) {
+        type = 'pill';
+      } else if (roll < 0.80) {
+        type = 'tea'; // 花間舒緩花茶
+      } else {
+        type = 'cheese'; // 雙倍濃醇起司陷阱
+      }
+
+      state.items.push({
+        type,
+        x,
+        y,
+        baseY: y,
+        radius: 26,
+        life: 5.5,
+        phase: Math.random() * Math.PI * 2
+      });
+    }
+
+    function activateItem(item) {
+      const cx = state.width * 0.5;
+      const cy = state.height * 0.56;
+
+      if (item.type === 'pill') {
+        // 乳糖酶小藥丸：腹鳴壓力 -30%，並開啟 3 秒「鐵胃無敵」雙倍飲奶
+        state.rumble = Math.max(0, state.rumble - 30);
+        state.ironStomachTimer = 3.2;
+        sfx.playHeal();
+        spawnParticles(item.x, item.y, '#38bdf8', 16);
+        spawnParticles(cx, cy - 30, '#fde047', 14);
+        spawnFloatingText(item.x, item.y - 16, '💊 乳糖酶生效！壓力-30% & 鐵胃2x！', '#0284c7');
+      } else if (item.type === 'tea') {
+        // 花間舒緩花茶：腹鳴壓力 -20%，額外 +150 ml
+        state.rumble = Math.max(0, state.rumble - 20);
+        state.score += 150;
+        sfx.playHeal();
+        spawnParticles(item.x, item.y, '#f472b6', 16);
+        spawnFloatingText(item.x, item.y - 16, '🌸 花間花茶！壓力-20% & +150ml', '#db2777');
+      } else if (item.type === 'cheese') {
+        // 誤點雙倍濃醇起司陷阱：壓力瞬間 +22%
+        state.rumble = Math.min(100, state.rumble + 22);
+        sfx.playCheeseTrap();
+        triggerShake(9, 0.25);
+        spawnParticles(item.x, item.y, '#facc15', 16);
+        spawnFloatingText(item.x, item.y - 16, '🧀 濃醇起司暴擊！腸胃壓力 +22%！', '#d97706');
+        if (state.rumble >= 100) {
+          triggerRocketToWC();
+        }
+      }
+    }
+
+    // 觸發 100% 腹鳴爆表：喵喵化身可愛卡通蒸氣火箭一飛沖天奔向 WC 廁所！
+    function triggerRocketToWC() {
+      state.rumble = 100;
+      state.isDrinking = false;
+      state.reachedDangerZone = false;
+      state.wcDashCount += 1;
+      state.rocketAnimTimer = 1.45;
+      state.rocketStartY = state.height * 0.62;
+
+      // 扣除 5 秒奔跑去廁所的時間
+      state.timeLeft = Math.max(0, state.timeLeft - 5.0);
+
+      drinkBtn.classList.remove('is-drinking');
+      drinkBtnTitle.textContent = '廁所衝刺回歸中...';
+      sfx.playRocketWC();
+      triggerShake(12, 0.35);
+
+      const cx = state.width * 0.5;
+      const cy = state.height * 0.62;
+      // 噴出大量可愛白色雲朵蒸氣與彩虹星星
+      for (let i = 0; i < 18; i++) {
+        state.steamPuffs.push({
+          x: cx + (Math.random() - 0.5) * 44,
+          y: cy + 25 + Math.random() * 20,
+          vx: (Math.random() - 0.5) * 90,
+          vy: 40 + Math.random() * 110,
+          radius: 12 + Math.random() * 14,
+          life: 0.75 + Math.random() * 0.4,
+          maxLife: 1.15
+        });
+      }
+      spawnParticles(cx, cy, '#f472b6', 18);
+      spawnParticles(cx, cy, '#fde047', 18);
+      spawnFloatingText(cx, cy - 85, '🚀 腸胃大爆發！火箭衝向 WC (-5.0s)', '#e11d48');
+    }
+
+    function spawnParticles(x, y, color, count = 12) {
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 60 + Math.random() * 190;
+        state.particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          size: 4 + Math.random() * 4.5,
+          color,
+          life: 0.45 + Math.random() * 0.3,
+          maxLife: 0.75
+        });
+      }
+    }
+
+    function spawnFloatingText(x, y, text, color = '#0284c7') {
+      state.floatingTexts.push({
+        x,
+        y,
+        text,
+        color,
+        life: 1.15,
+        maxLife: 1.15
+      });
+    }
+
+    function triggerShake(intensity = 6, duration = 0.2) {
+      state.shakeIntensity = intensity;
+      state.shakeTimer = duration;
+    }
+
+    /**
+     * ============================================================================
+     * 5. 遊戲流程控制 (開始、主更新迴圈、結算戰報)
+     * ============================================================================
+     */
+    function startGame() {
+      sfx.init();
+      state.mode = 'PLAYING';
+      state.score = 0;
+      state.timeLeft = 45.0;
+      state.rumble = 0;
+      state.isDrinking = false;
+      state.activeKeys.clear();
+      state.reachedDangerZone = false;
+      state.clutchCount = 0;
+      state.wcDashCount = 0;
+      state.ironStomachTimer = 0;
+      state.rocketAnimTimer = 0;
+      state.gulpSoundTimer = 0;
+      state.items = [];
+      state.itemSpawnTimer = 1.4;
+      state.particles = [];
+      state.steamPuffs = [];
+      state.floatingTexts = [];
+
+      drinkBtn.classList.remove('is-drinking');
+      drinkBtnTitle.textContent = '按住狂飲鮮奶';
+
+      startScreen.classList.add('hidden');
+      gameoverScreen.classList.add('hidden');
+      gameoverScreen.classList.remove('flex');
+      bottomControls.classList.remove('hidden');
+      bottomControls.classList.add('flex');
+
+      syncHUD();
+    }
+
+    function endGame() {
+      state.mode = 'GAMEOVER';
+      state.isDrinking = false;
+      state.activeKeys.clear();
+      drinkBtn.classList.remove('is-drinking');
+
+      bottomControls.classList.add('hidden');
+      bottomControls.classList.remove('flex');
+
+      const finalScore = Math.floor(state.score);
+      if (finalScore > state.bestScore) {
+        state.bestScore = finalScore;
+        localStorage.setItem(BEST_KEY, finalScore.toString());
+        hudBest.textContent = `${finalScore} ml`;
+      }
+
+      // 依據飲奶量與衝廁次數頒發搞笑公會稱號
+      let title = '乳糖不耐見習生 🥛';
+      let desc = '喝得還不夠盡興，下次大膽衝進 85% 紅區挑戰極限忍耐吧！';
+      if (finalScore >= 4200 && state.wcDashCount <= 1) {
+        title = '花間鐵胃奶神 👑🥛';
+        desc = '不可思議！乳糖不耐症在神級腸胃面前根本不存在，花間公會最強傳說！';
+      } else if (state.wcDashCount >= 4) {
+        title = 'WC 廁所常駐 VIP 🚀🚽';
+        desc = '火箭升空速度比劍氣還快！花間公會的廁所門都快被喵喵撞壞啦！';
+      } else if (finalScore >= 2400) {
+        title = '極限憋氣大師 🔥';
+        desc = '在肚子咕嚕嚕的邊緣瘋狂試探，成功榨出驚人的飲奶紀錄！';
+      }
+
+      document.getElementById('res-rank-title').textContent = title;
+      document.getElementById('res-rank-desc').textContent = desc;
+      document.getElementById('res-score').textContent = `${finalScore} ml`;
+      document.getElementById('res-wc').textContent = `${state.wcDashCount} 次`;
+      document.getElementById('res-clutch').textContent = `${state.clutchCount} 次`;
+
+      copyToast.classList.add('hidden');
+      gameoverScreen.classList.remove('hidden');
+      gameoverScreen.classList.add('flex');
+    }
+
+    startBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      startGame();
+    });
+
+    restartBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      startGame();
+    });
+
+    shareBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const finalScore = Math.floor(state.score);
+      const title = document.getElementById('res-rank-title').textContent;
+      const text =
+        `🥛【花間公會・喵喵乳糖不耐戰報】🍌\n` +
+        `獲得稱號：${title}\n` +
+        `🥛 總飲奶量：${finalScore} ml\n` +
+        `🔥 極限忍耐成功：${state.clutchCount} 次\n` +
+        `🚀 火箭衝向廁所：${state.wcDashCount} 次\n` +
+        `花間的大家快來幫團欺喵喵灌牛奶！`;
+
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        copyToast.classList.remove('hidden');
+      } catch (err) {
+        copyToast.textContent = '⚠️ 複製失敗，請手動截圖分享！';
+        copyToast.classList.remove('hidden');
+      }
+      document.body.removeChild(ta);
+    });
+
+    function update(dt) {
+      state.elapsed += dt;
+
+      // 背景白雲緩慢飄動
+      state.clouds.forEach(c => {
+        c.x += c.speed * dt;
+        if (c.x > state.width + 180) c.x = -180;
+      });
+
+      if (state.mode !== 'PLAYING') return;
+
+      // 倒數計時
+      state.timeLeft -= dt;
+      if (state.timeLeft <= 0) {
+        state.timeLeft = 0;
+        syncHUD();
+        endGame();
+        return;
+      }
+
+      if (state.shakeTimer > 0) state.shakeTimer -= dt;
+      if (state.ironStomachTimer > 0) state.ironStomachTimer = Math.max(0, state.ironStomachTimer - dt);
+
+      // 處理火箭衝廁演出期間
+      if (state.rocketAnimTimer > 0) {
+        state.rocketAnimTimer -= dt;
+        // 持續生成白色雲朵蒸氣尾跡
+        if (Math.random() < 0.7) {
+          const progress = 1 - state.rocketAnimTimer / 1.45;
+          const rocketY = state.rocketStartY - progress * (state.height * 0.95);
+          state.steamPuffs.push({
+            x: state.width * 0.5 + (Math.random() - 0.5) * 26,
+            y: rocketY + 35,
+            vx: (Math.random() - 0.5) * 40,
+            vy: 30 + Math.random() * 50,
+            radius: 10 + Math.random() * 10,
+            life: 0.55,
+            maxLife: 0.55
+          });
+        }
+
+        if (state.rocketAnimTimer <= 0) {
+          // 廁所衝刺回歸，腸胃壓力歸零！
+          state.rumble = 0;
+          drinkBtnTitle.textContent = '按住狂飲鮮奶';
+          spawnFloatingText(state.width * 0.5, state.height * 0.48, '✨ 廁所衝刺回歸！腸胃清空 0%！', '#10b981');
+        }
+      } else {
+        // 正常飲奶與消化邏輯
+        const isIron = state.ironStomachTimer > 0;
+
+        if (state.isDrinking) {
+          // 狂飲鮮奶：增加飲奶量 (鐵胃無敵期間雙倍得分且壓力不上升)
+          const drinkRate = isIron ? 260 : 145;
+          state.score += drinkRate * dt;
+
+          if (!isIron) {
+            // 腹鳴壓力上升速度 (越接近高壓越緊張)
+            const pressureGain = 26 + (state.rumble / 100) * 14;
+            state.rumble = Math.min(100, state.rumble + pressureGain * dt);
+          }
+
+          // 進入 85% 危險紅區標記
+          if (state.rumble >= 85 && state.rumble < 100) {
+            state.reachedDangerZone = true;
+          }
+
+          // 週期性播放「咕嘟」喝奶音效與噴出牛奶小水花
+          state.gulpSoundTimer -= dt;
+          if (state.gulpSoundTimer <= 0) {
+            state.gulpSoundTimer = 0.16;
+            sfx.playGulp(state.rumble / 100);
+            spawnParticles(state.width * 0.5 + 18, state.height * 0.56, '#ffffff', 3);
+          }
+
+          // 腹鳴值達到 100% -> 觸發火箭衝向 WC 廁所！
+          if (state.rumble >= 100) {
+            triggerRocketToWC();
+          }
+        } else {
+          // 放開喘口氣消化：腹鳴壓力平穩下降
+          const reliefRate = isIron ? 36 : 23;
+          state.rumble = Math.max(0, state.rumble - reliefRate * dt);
+
+          // 檢查「極限忍耐成功」：曾經衝進 85%~99% 紅區，並成功冷卻回 50% 以下！
+          if (state.reachedDangerZone && state.rumble <= 50) {
+            state.reachedDangerZone = false;
+            state.clutchCount += 1;
+            state.score += 300;
+            sfx.playClutch();
+            spawnParticles(state.width * 0.5, state.height * 0.54, '#34d399', 20);
+            spawnFloatingText(state.width * 0.5, state.height * 0.44, '🔥 極限忍耐成功！+300 ml！', '#059669');
+          }
+        }
+      }
+
+      // 生成空中救援與陷阱道具
+      state.itemSpawnTimer -= dt;
+      if (state.itemSpawnTimer <= 0) {
+        if (state.items.length < 3) {
+          spawnItem();
+        }
+        state.itemSpawnTimer = 2.1 + Math.random() * 1.1;
+      }
+
+      for (let i = state.items.length - 1; i >= 0; i--) {
+        const it = state.items[i];
+        it.life -= dt;
+        it.phase += dt * 3.5;
+        it.y = it.baseY + Math.sin(it.phase) * 9;
+        if (it.life <= 0) {
+          state.items.splice(i, 1);
+        }
+      }
+
+      // 更新蒸氣雲朵、粒子與飄字
+      for (let i = state.steamPuffs.length - 1; i >= 0; i--) {
+        const sp = state.steamPuffs[i];
+        sp.x += sp.vx * dt;
+        sp.y += sp.vy * dt;
+        sp.radius += 14 * dt;
+        sp.life -= dt;
+        if (sp.life <= 0) state.steamPuffs.splice(i, 1);
+      }
+
+      for (let i = state.particles.length - 1; i >= 0; i--) {
+        const pt = state.particles[i];
+        pt.x += pt.vx * dt;
+        pt.y += pt.vy * dt;
+        pt.life -= dt;
+        if (pt.life <= 0) state.particles.splice(i, 1);
+      }
+
+      for (let i = state.floatingTexts.length - 1; i >= 0; i--) {
+        const ft = state.floatingTexts[i];
+        ft.y -= 42 * dt;
+        ft.life -= dt;
+        if (ft.life <= 0) state.floatingTexts.splice(i, 1);
+      }
+
+      syncHUD();
+    }
+
+    function syncHUD() {
+      hudScore.innerHTML = `${Math.floor(state.score)} <span class="text-xs font-bold">ml</span>`;
+      hudTime.textContent = `${state.timeLeft.toFixed(1)}s`;
+      hudWc.textContent = state.wcDashCount;
+      hudClutch.textContent = state.clutchCount;
+
+      if (state.timeLeft <= 8.0 && state.mode === 'PLAYING') {
+        hudTimeBox.classList.remove('bg-amber-50', 'border-amber-200');
+        hudTimeBox.classList.add('bg-rose-100', 'border-rose-400');
+      } else {
+        hudTimeBox.classList.add('bg-amber-50', 'border-amber-200');
+        hudTimeBox.classList.remove('bg-rose-100', 'border-rose-400');
+      }
+
+      const pct = Math.round(state.rumble);
+      rumblePercent.textContent = `${pct}%`;
+      rumbleBar.style.width = `${pct}%`;
+
+      if (state.ironStomachTimer > 0) {
+        ironBadge.classList.remove('hidden');
+        ironBadge.textContent = `💊 鐵胃無敵 ${state.ironStomachTimer.toFixed(1)}s`;
+      } else {
+        ironBadge.classList.add('hidden');
+      }
+
+      if (state.rocketAnimTimer > 0) {
+        rumbleStatusText.innerHTML = `<span class="text-rose-600">🚀 噗噗火箭衝向 WC 廁所中！</span>`;
+        rumbleContainer.classList.add('danger-pulse');
+      } else if (pct >= 85) {
+        rumbleStatusText.innerHTML = `<span class="text-rose-600">😱 極限紅區！快放開喘口氣！</span>`;
+        rumbleContainer.classList.add('danger-pulse');
+      } else if (pct >= 55) {
+        rumbleStatusText.innerHTML = `<span class="text-amber-600">💦 肚子咕嚕嚕作響中...</span>`;
+        rumbleContainer.classList.remove('danger-pulse');
+      } else {
+        rumbleStatusText.innerHTML = `<span class="text-slate-700">🐱 腸胃平穩，可以繼續喝！</span>`;
+        rumbleContainer.classList.remove('danger-pulse');
+      }
+    }
+
+    /**
+     * ============================================================================
+     * 6. HTML5 Canvas 畫面與「喵喵」角色動畫繪製
+     * ============================================================================
+     */
+    function drawBackground() {
+      const w = state.width;
+      const h = state.height;
+
+      // 藍天漸層 (還原原圖清新草原與白雲背景)
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, h * 0.58);
+      skyGrad.addColorStop(0, '#60a5fa');
+      skyGrad.addColorStop(1, '#bae6fd');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      // 白雲
+      state.clouds.forEach(c => {
+        ctx.save();
+        ctx.translate(c.x, c.y);
+        ctx.scale(c.scale, c.scale);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.beginPath();
+        ctx.arc(0, 0, 30, 0, Math.PI * 2);
+        ctx.arc(28, -10, 36, 0, Math.PI * 2);
+        ctx.arc(60, 0, 28, 0, Math.PI * 2);
+        ctx.arc(-24, 6, 22, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      // 遠山與小樹
+      const horizonY = h * 0.54;
+      ctx.fillStyle = '#a3d468';
+      ctx.beginPath();
+      ctx.moveTo(0, h);
+      ctx.lineTo(0, horizonY);
+      ctx.quadraticCurveTo(w * 0.3, horizonY - 36, w * 0.65, horizonY - 8);
+      ctx.quadraticCurveTo(w * 0.85, horizonY + 8, w, horizonY - 22);
+      ctx.lineTo(w, h);
+      ctx.closePath();
+      ctx.fill();
+
+      // 前景翠綠草原
+      const grassGrad = ctx.createLinearGradient(0, horizonY, 0, h);
+      grassGrad.addColorStop(0, '#b5e063');
+      grassGrad.addColorStop(1, '#84cc16');
+      ctx.fillStyle = grassGrad;
+      ctx.fillRect(0, horizonY + 12, w, h - horizonY);
+
+      // 右後方可愛卡通「WC 廁所小屋」路標 (目標地點！)
+      const wcX = Math.min(w - 56, w * 0.84);
+      const wcY = horizonY + 16;
+      ctx.save();
+      ctx.translate(wcX, wcY);
+      // 木屋本體
+      ctx.fillStyle = '#fef3c7';
+      ctx.strokeStyle = '#78350f';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.roundRect(-26, -46, 52, 48, 8);
+      ctx.fill();
+      ctx.stroke();
+      // 紅色屋頂
+      ctx.fillStyle = '#f43f5e';
+      ctx.beginPath();
+      ctx.moveTo(-32, -44);
+      ctx.lineTo(0, -68);
+      ctx.lineTo(32, -44);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      // WC 招牌
+      ctx.fillStyle = '#0284c7';
+      ctx.font = '900 14px "Noto Sans TC", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('WC', 0, -22);
+      ctx.restore();
+    }
+
+    // 繪製主角「喵喵」(灰狼耳、頭頂香蕉皮、水手服、大咸魚武器、表情隨腹鳴壓力變化！)
+    function drawMiaomiao() {
+      const cx = state.width * 0.5;
+      let cy = state.height * 0.63;
+      const pct = state.rumble;
+      const isRocket = state.rocketAnimTimer > 0;
+      const isIron = state.ironStomachTimer > 0;
+
+      // 火箭升空衝向 WC 的位置與旋轉計算
+      let scaleX = 1;
+      let scaleY = 1;
+      let rot = 0;
+
+      if (isRocket) {
+        const progress = 1 - state.rocketAnimTimer / 1.45;
+        cy = state.rocketStartY - Math.pow(progress, 1.5) * (state.height * 0.95);
+        scaleX = 0.84;
+        scaleY = 1.24;
+        rot = Math.sin(progress * 28) * 0.12;
+      } else if (state.isDrinking) {
+        // 喝奶時上下律動與臉頰鼓起
+        const bounce = Math.sin(state.elapsed * 24) * 3;
+        cy += bounce;
+        scaleX = 1 + Math.sin(state.elapsed * 24) * 0.03;
+        scaleY = 1 - Math.sin(state.elapsed * 24) * 0.03;
+      } else if (pct >= 75) {
+        // 危險紅區全身發抖忍耐！
+        rot = Math.sin(state.elapsed * 45) * 0.06;
+      }
+
+      // 腳下陰影 (火箭升空時縮小)
+      if (!isRocket) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+        ctx.beginPath();
+        ctx.ellipse(cx, state.height * 0.63 + 74, 58, 14, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 繪製喵喵身旁斜靠著的招牌「大咸魚」(還原原圖灰背白肚與呆萌魚眼)
+      if (!isRocket) {
+        ctx.save();
+        ctx.translate(cx - 56, state.height * 0.63 + 46);
+        ctx.rotate(0.45);
+        // 木棍握柄
+        ctx.strokeStyle = '#6d4c3d';
+        ctx.lineWidth = 8;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-48, 0);
+        ctx.lineTo(14, 0);
+        ctx.stroke();
+        // 咸魚身體
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#1f2937';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.ellipse(38, 0, 36, 15, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#57606f';
+        ctx.beginPath();
+        ctx.ellipse(38, -4, 34, 9, 0, Math.PI, Math.PI * 2);
+        ctx.fill();
+        // 呆萌魚眼
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(62, -3, 3.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#111827';
+        ctx.beginPath();
+        ctx.arc(63, -3, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(rot);
+      ctx.scale(scaleX, scaleY);
+
+      // 鐵胃無敵金光護盾
+      if (isIron && !isRocket) {
+        ctx.save();
+        ctx.strokeStyle = '#facc15';
+        ctx.lineWidth = 4;
+        ctx.fillStyle = 'rgba(253, 224, 71, 0.2)';
+        ctx.beginPath();
+        ctx.arc(0, 0, 86 + Math.sin(state.elapsed * 12) * 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 1. 雙腿與水手服下半身 (75% 以上危險區會夾緊雙腿忍耐！)
+      ctx.strokeStyle = '#1f2937';
+      ctx.lineWidth = 3.2;
+      ctx.fillStyle = '#ffe8d6';
+      if (pct >= 75 || isRocket) {
+        // 內八夾緊雙腿
+        ctx.beginPath();
+        ctx.roundRect(-16, 40, 12, 32, 5);
+        ctx.roundRect(4, 40, 12, 32, 5);
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.roundRect(-20, 40, 12, 32, 5);
+        ctx.roundRect(8, 40, 12, 32, 5);
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      // 深藍色短褲
+      ctx.fillStyle = '#334155';
+      ctx.beginPath();
+      ctx.roundRect(-24, 26, 48, 20, 6);
+      ctx.fill();
+      ctx.stroke();
+
+      // 2. 白色水手服上衣與藍色水手領結 (喝越多肚子越圓鼓鼓！)
+      const bellyBulge = (pct / 100) * 14;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(-24 - bellyBulge * 0.4, -4);
+      ctx.lineTo(24 + bellyBulge * 0.4, -4);
+      ctx.lineTo(30 + bellyBulge, 32);
+      ctx.lineTo(-30 - bellyBulge, 32);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // 藍色水手領披肩與領結
+      ctx.fillStyle = '#3b82f6';
+      ctx.beginPath();
+      ctx.moveTo(-20, -4);
+      ctx.lineTo(0, 14);
+      ctx.lineTo(20, -4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#60a5fa';
+      ctx.beginPath();
+      ctx.moveTo(0, 8);
+      ctx.lineTo(-7, 22);
+      ctx.lineTo(0, 27);
+      ctx.lineTo(7, 22);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // 肚子上的「咕嚕嚕」腹鳴聲波紋
+      if (pct >= 45 && !isRocket) {
+        ctx.save();
+        ctx.strokeStyle = pct >= 80 ? '#e11d48' : '#d97706';
+        ctx.lineWidth = 2.8;
+        const waveOffset = Math.sin(state.elapsed * 20) * 3;
+        ctx.beginPath();
+        ctx.arc(-36 - bellyBulge, 18, 10 + waveOffset, Math.PI * 0.7, Math.PI * 1.3);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(36 + bellyBulge, 18, 10 + waveOffset, -Math.PI * 0.3, Math.PI * 0.3);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 3. 頭部、灰狼耳與頭頂招牌「剝皮香蕉」
+      // 後髮
+      ctx.fillStyle = '#6b7280';
+      ctx.beginPath();
+      ctx.arc(0, -34, 42, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // 左右灰色尖狼耳
+      ctx.fillStyle = '#9ca3af';
+      ctx.beginPath();
+      ctx.moveTo(-34, -52);
+      ctx.lineTo(-40, -90);
+      ctx.lineTo(-12, -66);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(34, -52);
+      ctx.lineTo(40, -90);
+      ctx.lineTo(12, -66);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // 臉蛋 (隨腹鳴壓力變色：平穩粉嫩 -> 緊張發青 -> 爆表通紅)
+      if (isRocket || pct >= 88) {
+        ctx.fillStyle = '#fecdd3'; // 臉紅憋氣
+      } else if (pct >= 65) {
+        ctx.fillStyle = '#e0f2fe'; // 冒冷汗發青
+      } else {
+        ctx.fillStyle = '#ffe8d6';
+      }
+      ctx.beginPath();
+      ctx.arc(0, -32, 36, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // 喝奶時鼓鼓的可愛倉鼠臉頰！
+      if (state.isDrinking) {
+        ctx.fillStyle = '#fda4af';
+        ctx.beginPath();
+        ctx.ellipse(-24, -22, 11, 8, 0, 0, Math.PI * 2);
+        ctx.ellipse(24, -22, 11, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 灰髮瀏海
+      ctx.fillStyle = '#9ca3af';
+      ctx.beginPath();
+      ctx.arc(0, -36, 37, Math.PI, Math.PI * 2);
+      ctx.lineTo(35, -28);
+      ctx.lineTo(22, -42);
+      ctx.lineTo(10, -28);
+      ctx.lineTo(0, -44);
+      ctx.lineTo(-10, -28);
+      ctx.lineTo(-22, -42);
+      ctx.lineTo(-35, -28);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // 頭頂招牌黃色剝皮香蕉
+      ctx.save();
+      ctx.translate(0, -72);
+      ctx.fillStyle = '#78350f';
+      ctx.fillRect(-4, -10, 8, 7);
+      ctx.fillStyle = '#facc15';
+      ctx.beginPath();
+      ctx.moveTo(0, -4);
+      ctx.quadraticCurveTo(-24, 0, -26, 16);
+      ctx.quadraticCurveTo(-12, 14, -4, 4);
+      ctx.moveTo(0, -4);
+      ctx.quadraticCurveTo(24, 0, 26, 16);
+      ctx.quadraticCurveTo(12, 14, 4, 4);
+      ctx.moveTo(0, -4);
+      ctx.quadraticCurveTo(-10, 10, -8, 20);
+      ctx.quadraticCurveTo(0, 16, 0, 4);
+      ctx.moveTo(0, -4);
+      ctx.quadraticCurveTo(10, 10, 8, 20);
+      ctx.quadraticCurveTo(0, 16, 0, 4);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // 4. 多變表情系統 (幸福喝奶 / 緊張豆豆眼 / 紅區哭哭眼 / 火箭眩暈眼)
+      if (isRocket) {
+        // 暈頭轉向螺旋眼
+        ctx.strokeStyle = '#1f2937';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(-22, -36); ctx.lineTo(-10, -24);
+        ctx.moveTo(-10, -36); ctx.lineTo(-22, -24);
+        ctx.moveTo(10, -36); ctx.lineTo(22, -24);
+        ctx.moveTo(22, -36); ctx.lineTo(10, -24);
+        ctx.stroke();
+        // 波浪嘴
+        ctx.beginPath();
+        ctx.arc(0, -14, 8, Math.PI, Math.PI * 2);
+        ctx.stroke();
+      } else if (pct >= 80) {
+        // 危險紅區：緊閉 ＞﹏＜ 忍耐表情 + 兩滴大冷汗
+        ctx.strokeStyle = '#1f2937';
+        ctx.lineWidth = 3.2;
+        ctx.beginPath();
+        ctx.moveTo(-22, -36); ctx.lineTo(-10, -30); ctx.lineTo(-22, -24);
+        ctx.moveTo(22, -36); ctx.lineTo(10, -30); ctx.lineTo(22, -24);
+        ctx.stroke();
+        // 咬牙切齒波浪嘴
+        ctx.beginPath();
+        ctx.moveTo(-10, -15);
+        ctx.lineTo(-5, -18);
+        ctx.lineTo(0, -15);
+        ctx.lineTo(5, -18);
+        ctx.lineTo(10, -15);
+        ctx.stroke();
+        // 藍色冷汗滴
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath();
+        ctx.arc(32, -42 + (state.elapsed * 20) % 10, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (state.isDrinking) {
+        // 狂飲幸福 ＞ω＜ 瞇眼
+        ctx.strokeStyle = '#1f2937';
+        ctx.lineWidth = 3.2;
+        ctx.beginPath();
+        ctx.moveTo(-22, -36); ctx.lineTo(-11, -30); ctx.lineTo(-22, -24);
+        ctx.moveTo(22, -36); ctx.lineTo(11, -30); ctx.lineTo(22, -24);
+        ctx.stroke();
+      } else {
+        // 原圖招牌驚恐圓圈白眼
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(-15, -30, 8.5, 0, Math.PI * 2);
+        ctx.arc(15, -30, 8.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#1f2937';
+        ctx.beginPath();
+        ctx.arc(-14, -30, 2.2, 0, Math.PI * 2);
+        ctx.arc(14, -30, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 張開的小嘴
+        ctx.fillStyle = '#fda4af';
+        ctx.beginPath();
+        ctx.arc(0, -15, 6.5, 0, Math.PI);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      // 5. 手持「特大號花間鮮奶瓶」與雙手動作
+      if (isRocket) {
+        // 火箭升空時雙手緊抱肚子
+        ctx.fillStyle = '#ffe8d6';
+        ctx.beginPath();
+        ctx.roundRect(-24, 6, 22, 11, 5);
+        ctx.roundRect(2, 6, 22, 11, 5);
+        ctx.fill();
+        ctx.stroke();
+      } else if (state.isDrinking) {
+        // 雙手舉起特大號鮮奶盒對嘴狂灌！
+        ctx.save();
+        ctx.translate(16, -12);
+        ctx.rotate(-0.65);
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.roundRect(-14, -24, 28, 44, 5);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillRect(-12, -8, 24, 16);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 10px "Noto Sans TC", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('MILK', 0, 4);
+        ctx.restore();
+      } else {
+        // 休息消化時一手抱肚子、一手拿著奶瓶喘氣
+        ctx.fillStyle = '#ffe8d6';
+        ctx.beginPath();
+        ctx.roundRect(-22, 10, 22, 10, 5);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.save();
+        ctx.translate(34, 14);
+        ctx.rotate(0.2);
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 2.8;
+        ctx.beginPath();
+        ctx.roundRect(-11, -18, 22, 34, 4);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillRect(-9, -6, 18, 12);
+        ctx.restore();
+      }
+
+      ctx.restore();
+    }
+
+    // 繪製空中飄浮救援道具與起司陷阱
+    function drawItems() {
+      state.items.forEach(item => {
+        ctx.save();
+        ctx.translate(item.x, item.y);
+
+        // 發光氣泡底座
+        ctx.fillStyle = item.type === 'cheese'
+          ? 'rgba(254, 240, 138, 0.92)'
+          : 'rgba(255, 255, 255, 0.94)';
+        ctx.strokeStyle = item.type === 'pill'
+          ? '#0284c7'
+          : (item.type === 'tea' ? '#ec4899' : '#d97706');
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, item.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // 道具圖示與標籤
+        ctx.font = '24px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const icon = item.type === 'pill' ? '💊' : (item.type === 'tea' ? '🌸' : '🧀');
+        ctx.fillText(icon, 0, -2);
+
+        ctx.font = '900 10px "Noto Sans TC", sans-serif';
+        ctx.fillStyle = '#1e293b';
+        const label = item.type === 'pill' ? '點我降壓' : (item.type === 'tea' ? '舒緩茶' : '起司陷阱');
+        ctx.fillText(label, 0, item.radius + 11);
+
+        ctx.restore();
+      });
+    }
+
+    function drawEffects() {
+      // 卡通白色雲朵蒸氣 (乾淨可愛的噴射效果)
+      state.steamPuffs.forEach(sp => {
+        const alpha = Math.max(0, sp.life / sp.maxLife);
+        ctx.save();
+        ctx.globalAlpha = alpha * 0.9;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(sp.x, sp.y, sp.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      // 彩帶粒子
+      state.particles.forEach(pt => {
+        const alpha = Math.max(0, pt.life / pt.maxLife);
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = pt.color;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      // 飄浮提示文字
+      state.floatingTexts.forEach(ft => {
+        const alpha = Math.max(0, ft.life / ft.maxLife);
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.font = '900 16px "Noto Sans TC", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 4;
+        ctx.strokeText(ft.text, ft.x, ft.y);
+        ctx.fillStyle = ft.color;
+        ctx.fillText(ft.text, ft.x, ft.y);
+        ctx.restore();
+      });
+    }
+
+    function render() {
+      ctx.save();
+      if (state.shakeTimer > 0) {
+        const sx = (Math.random() - 0.5) * state.shakeIntensity * 2;
+        const sy = (Math.random() - 0.5) * state.shakeIntensity * 2;
+        ctx.translate(sx, sy);
+      }
+
+      drawBackground();
+      drawMiaomiao();
+      drawItems();
+      drawEffects();
+
+      ctx.restore();
+    }
+
+    let lastTime = 0;
+    function gameLoop(ts) {
+      if (!lastTime) lastTime = ts;
+      const dt = Math.min((ts - lastTime) / 1000, 0.05);
+      lastTime = ts;
+
+      update(dt);
+      render();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    window.onload = function () {
+      resizeCanvas();
+      initClouds();
+      requestAnimationFrame(gameLoop);
+    };
+  </script>
+</body>
+</html>
